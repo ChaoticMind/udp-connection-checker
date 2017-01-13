@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-from __future__ import absolute_import, unicode_literals, division, print_function
+#!/usr/bin/env python3
 import json
 import argparse
 import logging
@@ -11,18 +10,15 @@ from twisted.web import server, resource
 from twisted.web.util import redirectTo
 from prometheus_client import REGISTRY, generate_latest, CONTENT_TYPE_LATEST
 
-MTU = 1500  # enforce that sent packets are not larger than this
+MTU = 1316  # enforce that sent packets are not larger than this
 
 
 # TODO:
 # 	- Allow disconnections/reconnections without restarting both programs
-# 		- ctrl + c on server then up enter (with and without jitter)
-# 		- start client before server
-# 		- client starts before the server starts (with and without jitter)
-# 		- client sends data without handshake
-# 		- client sends handshake that never gets acked (it should keep retrying)
-# 	- API reset
+# 		- server ctrl+c (with jitter?) looping call cancelled
+# 		- permission denied on the client if a firewall rule is present
 # 	- Use prometheus counters
+# 	- For high thresholds, it seems that we don't register packet losses properly
 
 
 # API stuff
@@ -94,7 +90,7 @@ class Reset(resource.Resource):
 
 	def render_GET(self, request):
 		logging.debug('[HTTP API]: Received "reset" request')
-		if self.__conn._initialized:
+		if self.__conn._source_ip:
 			self.__conn.reset_connection(request)
 			return server.NOT_DONE_YET
 		else:
@@ -106,12 +102,12 @@ class Reset(resource.Resource):
 class Receiver(DatagramProtocol):
 	def __init__(self, nolock, logic_handler):
 		super().__init__()
-		self._initialized = False
-		self.__source_ip = None
+		self.__initialized = False
+		self._source_ip = None
 		self.__source_port = None
 		self.__lock_port = not nolock
 		self.__logic = logic_handler
-		self.__task = task.LoopingCall(self.__logic.expect_packet)
+		self.__expect_task = task.LoopingCall(self.__logic.expect_packet)
 		self.__reset_task = None
 		self.__pending_reset = None
 
@@ -119,9 +115,9 @@ class Receiver(DatagramProtocol):
 		# Step 1: lock/verify
 		host, port = info
 		# logging.debug("Received {} from {}:{}".format(data, host, port))
-		if self.__source_ip or self.__source_port:
-			if host != self.__source_ip:
-				logging.error("Received packet from unknown ip ({}, expected {}), ignoring".format(host, self.__source_ip))
+		if self._source_ip or self.__source_port:
+			if host != self._source_ip:
+				logging.error("Received packet from unknown ip ({}, expected {}), ignoring".format(host, self._source_ip))
 				msg = {'type': 'info', 'content': "unknown ip, ignoring"}
 				self._send_json(msg, info)
 				return
@@ -134,7 +130,7 @@ class Receiver(DatagramProtocol):
 				pass
 		else:
 			logging.info("Locking receipts to: {}:{}".format(host, port))
-			self.__source_ip = host
+			self._source_ip = host
 			self.__source_port = port
 
 		# Step 2: strip
@@ -152,9 +148,9 @@ class Receiver(DatagramProtocol):
 		# Step 3: decode
 		data = json.loads(data.decode("ascii"))
 		if data['type'] == "handshake":
-			if self._initialized:
+			if self.__initialized:
 				logging.warning("Already shook hands, resetting state...")
-				self.__task.stop()
+				self.__expect_task.stop()
 				self.__logic.reset_state()
 				# return
 			if self.__pending_reset:  # API waiting
@@ -165,11 +161,12 @@ class Receiver(DatagramProtocol):
 				self.__reset_task = None
 
 			msg = {"type": "ack"}
-			self._initialized = True
+			self.__initialized = True
 			inv_pps = 1 / data['pps']
-			self.__task.start(inv_pps, now=True)
+			self.__expect_task.start(inv_pps, now=True)
 			self._send_json(msg, info)
 		elif data['type'] == "next_packet":
+			# TODO: if not initialized, initialize - guess
 			self.__logic.received(data['packet_id'], self)
 		else:
 			logging.error("received unknown data: {}".format(data))
@@ -178,7 +175,7 @@ class Receiver(DatagramProtocol):
 		encoded = bytes(json.dumps(data), "ascii")
 		assert(len(encoded) <= MTU)
 		if info is None:
-			info = (self.__source_ip, self.__source_port)
+			info = (self._source_ip, self.__source_port)
 		logging.debug("Sending {}".format(encoded))
 		self.transport.write(encoded, info)
 
@@ -210,7 +207,6 @@ class Logic():
 		self.__packet_losses = 0  # these two?
 
 	def received(self, packet_id, conn):
-
 		if packet_id > self.__expected_packet_id + self.__threshold:
 			logging.info("[ERROR] Received a packet that's too far in the future. Something is wrong. Requesting abort from client and ignoring packet")
 			# could possibly not do anything in this case
@@ -227,6 +223,7 @@ class Logic():
 			logging.error("[Fail] Received out of order packet {}".format(packet_id))
 		elif packet_id < min_packet_id:
 			logging.error("[Fail] Received a very old packet. It is considered lost by now...")
+
 		self.__total_packets += 1
 
 	def expect_packet(self):
