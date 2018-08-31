@@ -6,6 +6,8 @@ from twisted.web import server, resource
 from twisted.web.util import redirectTo
 from prometheus_client import REGISTRY, generate_latest, CONTENT_TYPE_LATEST
 
+log = logging.getLogger(__name__)
+
 
 class HttpApi(resource.Resource):
     """Root resource"""
@@ -20,7 +22,7 @@ class HttpApi(resource.Resource):
         return self
 
     def render_GET(self, request):
-        logging.debug('[HTTP API]: Received "/" request')
+        log.debug('[HTTP API]: Received "/" request')
         return redirectTo(b"help", request)
 
 
@@ -29,7 +31,7 @@ class GenerateHelp(resource.Resource):
     isLeaf = True
 
     def render_GET(self, request):
-        logging.debug('[HTTP API]: Received "help" request')
+        log.debug('[HTTP API]: Received "help" request')
         help_str = OrderedDict()
         help_str['/help'] = "Lists API calls (this message)"
         help_str['/metrics'] = "Lists metrics"
@@ -48,7 +50,7 @@ class MetricsResource(resource.Resource):
         self.registry = registry
 
     def render_GET(self, request):
-        logging.debug('[HTTP API]: Received "metrics" request')
+        log.debug('[HTTP API]: Received "metrics" request')
         request.setHeader(b'Content-Type', CONTENT_TYPE_LATEST.encode('ascii'))
         return generate_latest(self.registry)
 
@@ -61,7 +63,7 @@ class Status(resource.Resource):
         self.__logic = logic
 
     def render_GET(self, request):
-        logging.debug('[HTTP API]: Received "status" request')
+        log.debug('[HTTP API]: Received "status" request')
         request.responseHeaders.addRawHeader(
             b"content-type", b"application/json")
         return bytes(repr(self.__logic), 'utf-8')
@@ -75,7 +77,7 @@ class Reset(resource.Resource):
         self.__conn = conn
 
     def render_GET(self, request):
-        logging.debug('[HTTP API]: Received "reset" request')
+        log.debug('[HTTP API]: Received "reset" request')
         if self.__conn._source_ip:
             self.__conn.reset_connection(request)
             return server.NOT_DONE_YET

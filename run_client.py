@@ -8,6 +8,9 @@ from client import MTU
 from client.sender import Sender
 
 
+log = logging.getLogger(__name__)
+
+
 def positive_float(value):
     try:
         fvalue = float(value)
@@ -50,26 +53,43 @@ def main():
 
     args = parser.parse_args()
 
+    # logging setup
     level = max(10, 50 - (10 * args.v))
     print('Logging level is: {}'.format(logging.getLevelName(level)))
-    logging.basicConfig(
-        format='%(asctime)s: %(levelname)s:\t%(message)s', level=level)
 
+    formatter = logging.Formatter(
+        '%(asctime)s: %(levelname)s:\t%(message)s')
+    #     '%(asctime)s: %(filename)s\t%(levelname)s:\t%(message)s')
+    sh = logging.StreamHandler()
+    sh.setFormatter(formatter)
+
+    root_logger = logging.getLogger()
+    root_logger.addHandler(sh)
+
+    logger = logging.getLogger(__name__)
+    logger.setLevel(level)
+
+    logger = logging.getLogger('client')
+    logger.setLevel(level)
+
+    # process other parameters
     port = args.sending_port
     pps = args.pps
     pad = not args.dont_pad
 
     if pad:
         mbps = (pps * MTU) / 1024 / 1024
-        logging.info(
+        log.info(
             "Sending {} packet{} per second ".format(
                 pps, 's' if not pps == 1 else '') +
             "({:.4f} MiB/s - {:.4f} MBit/s)".format(mbps, mbps * 8))
     else:
-        logging.info(
+        log.info(
             "Sending {} packet{} per second".format(
                 pps, 's' if not pps == 1 else ''))
 
+    # main loop
+    log.info("Starting main loop...")
     s = Sender(args.jitter, port, pad, args.dst_ip, args.dst_port, pps)
 
     reactor.listenUDP(port, s)

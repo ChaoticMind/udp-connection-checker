@@ -10,6 +10,9 @@ from server.receiver import Receiver
 from server.main_loop import Logic
 
 
+log = logging.getLogger(__name__)
+
+
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -34,11 +37,27 @@ def main():
 
     args = parser.parse_args()
 
+    # logging setup
     level = max(10, 50 - (10 * args.v))
     print('Logging level is: {}'.format(logging.getLevelName(level)))
-    logging.basicConfig(
-        format='%(asctime)s: %(levelname)s:\t%(message)s', level=level)
 
+    formatter = logging.Formatter(
+        '%(asctime)s: %(levelname)s:\t%(message)s')
+    #     '%(asctime)s: %(filename)s\t%(levelname)s:\t%(message)s')
+    sh = logging.StreamHandler()
+    sh.setFormatter(formatter)
+
+    root_logger = logging.getLogger()
+    root_logger.addHandler(sh)
+
+    logger = logging.getLogger(__name__)
+    logger.setLevel(level)
+
+    logger = logging.getLogger('server')
+    logger.setLevel(level)
+
+    # main loop
+    log.info("Starting main loop...")
     l = Logic(args.threshold)
     conn = Receiver(args.dont_lock_port, l)
 

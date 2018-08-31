@@ -3,6 +3,8 @@ import json
 
 from collections import OrderedDict
 
+log = logging.getLogger(__name__)
+
 
 class Logic():
     def __init__(self, threshold):
@@ -20,7 +22,7 @@ class Logic():
 
     def received(self, packet_id, conn):
         if packet_id > self.__expected_packet_id + self.__threshold:
-            logging.info(
+            log.info(
                 "[ERROR] Received a packet that's too far in the future." +
                 "Something is wrong. Requesting abort from client and " +
                 "ignoring packet")
@@ -29,24 +31,24 @@ class Logic():
             return
 
         if packet_id > self.__max_packet_id:
-            logging.info(
+            log.info(
                 "[Success] Received in-order packet {}".format(packet_id))
         self.__max_packet_id = max(self.__max_packet_id, packet_id)
 
         min_packet_id = self.__max_packet_id - self.__threshold
         if min_packet_id < packet_id < self.__max_packet_id:
             self.__n_out_of_order += 1
-            logging.error(
+            log.error(
                 "[Fail] Received out of order packet {}".format(packet_id))
         elif packet_id < min_packet_id:
-            logging.error(
+            log.error(
                 "[Fail] Received a very old packet. " +
                 "It is considered lost by now...")
 
         self.__total_packets += 1
 
     def expect_packet(self):
-        logging.debug("Expecting packet: {}".format(self.__expected_packet_id))
+        log.debug("Expecting packet: {}".format(self.__expected_packet_id))
         # Note: if we have a perf bottleneck, we could just call this less
         # often and calculate __expected_packet_id more cleverly
         self.__expected_packet_id += 1
@@ -58,7 +60,7 @@ class Logic():
         )  # -0 because we start at 0
 
         if new_losses > old_losses:
-            logging.error(
+            log.error(
                 "[Fail] Most likely lost a packet for a total of: {}".format(
                     new_losses))
             self.__packet_losses = new_losses
@@ -66,7 +68,7 @@ class Logic():
             # This means we eventually received packets either out of order or
             # we thought we lost
             pass
-            # logging.critical(
+            # log.critical(
             #     "Received a packet that we thought we lost?" +
             #     "out of order? Shouldn't happen?")
 
