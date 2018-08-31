@@ -64,18 +64,22 @@ class Sender(DatagramProtocol):
         to_pad = MTU - len(encoded)
         assert(to_pad >= 0)
         if pad:
-            logging.debug("Sending {} (+ {} bytes padding)".format(encoded, to_pad))
+            logging.debug(
+                "Sending {} (+ {} bytes padding)".format(encoded, to_pad))
             # padding = [random.randint(0, 127) for x in range(to_pad)]
-            padding = RANDOM_PADDING[:to_pad]  # doesn't need to be different every time (~ 6x less cpu usage)
+            padding = RANDOM_PADDING[:to_pad]
+            # not having the padding be different every time results in about
+            # ~ 6x less cpu usage
             encoded += bytes(padding)
             assert(len(encoded) <= MTU)
         else:
             logging.debug("Sending {}".format(encoded))
 
         if self.__jitter:
-            jitter = random.randint(0, self.__jitter)
+            jitter_s = random.randint(0, self.__jitter) / 1000
             info = (self.__dst_ip, self.__dst_port)
-            reactor.callLater(jitter / 1000, self.transport.write, encoded, info)  # fake out of order packets
+            # jitter helps simulate fake out-of-order packets
+            reactor.callLater(jitter_s, self.transport.write, encoded, info)
         else:
             try:
                 info = (self.__dst_ip, self.__dst_port)

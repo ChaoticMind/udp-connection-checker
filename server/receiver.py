@@ -25,12 +25,19 @@ class Receiver(DatagramProtocol):
         # logging.debug("Received {} from {}:{}".format(data, host, port))
         if self._source_ip or self.__source_port:
             if host != self._source_ip:
-                logging.error("Received packet from unknown ip ({}, expected {}), ignoring".format(host, self._source_ip))
+                logging.error(
+                    "Received packet from unknown ip " +
+                    "({}, expected {}), ignoring".format(host, self._source_ip)
+                )
                 msg = {'type': 'info', 'content': "unknown ip, ignoring"}
                 self._send_json(msg, info)
                 return
             elif self.__lock_port and port != self.__source_port:
-                logging.error("Received packet from unknown port ({}, expected {}), ignoring".format(port, self.__source_port))
+                logging.error(
+                    "Received packet from unknown port " +
+                    "({}, expected {}), ignoring".format(
+                        port, self.__source_port)
+                )
                 msg = {'type': 'info', 'content': "unknown port, ignoring"}
                 self._send_json(msg, info)
                 return
@@ -49,7 +56,8 @@ class Receiver(DatagramProtocol):
         if i < len(data) - 1:
             stripped = len(data) - (i + 1)
             data = data[:i + 1]  # strip padding
-            logging.debug("Received: {} ({} bytes stripped)".format(data, stripped))
+            logging.debug(
+                "Received: {} ({} bytes stripped)".format(data, stripped))
         else:
             logging.debug("Received: {}".format(data))
 
@@ -62,7 +70,8 @@ class Receiver(DatagramProtocol):
                 self.__logic.reset_state()
                 # return
             if self.__pending_reset:  # API waiting
-                self.__pending_reset.write(b"Successfully resetted session")  # inform API
+                self.__pending_reset.write(
+                    b"Successfully resetted session")  # inform API
                 self.__pending_reset.finish()
                 self.__pending_reset = None
                 self.__reset_task.stop()

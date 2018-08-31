@@ -35,7 +35,8 @@ class GenerateHelp(resource.Resource):
         help_str['/metrics'] = "Lists metrics"
         help_str['/status'] = "Lists status"
         help_str['/reset'] = "Disconnects from client"
-        request.responseHeaders.addRawHeader(b"content-type", b"application/json")
+        request.responseHeaders.addRawHeader(
+            b"content-type", b"application/json")
         return bytes("{}".format(json.dumps(help_str)), "utf-8")
 
 
@@ -61,7 +62,8 @@ class Status(resource.Resource):
 
     def render_GET(self, request):
         logging.debug('[HTTP API]: Received "status" request')
-        request.responseHeaders.addRawHeader(b"content-type", b"application/json")
+        request.responseHeaders.addRawHeader(
+            b"content-type", b"application/json")
         return bytes(repr(self.__logic), 'utf-8')
 
 
