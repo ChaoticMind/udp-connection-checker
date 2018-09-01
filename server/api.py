@@ -4,7 +4,7 @@ from collections import OrderedDict
 
 from twisted.web import server, resource
 from twisted.web.util import redirectTo
-from prometheus_client import REGISTRY, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client.twisted import MetricsResource
 
 log = logging.getLogger(__name__)
 
@@ -42,24 +42,12 @@ class GenerateHelp(resource.Resource):
         return bytes("{}".format(json.dumps(help_str)), "utf-8")
 
 
-class MetricsResource(resource.Resource):
-    """Twisted ``Resource`` that serves prometheus metrics."""
-    isLeaf = True
-
-    def __init__(self, registry=REGISTRY):
-        self.registry = registry
-
-    def render_GET(self, request):
-        log.debug('[HTTP API]: Received "metrics" request')
-        request.setHeader(b'Content-Type', CONTENT_TYPE_LATEST.encode('ascii'))
-        return generate_latest(self.registry)
-
-
 class Status(resource.Resource):
     """Human readable metric data"""
     isLeaf = True
 
     def __init__(self, logic):
+        super().__init__()
         self.__logic = logic
 
     def render_GET(self, request):
@@ -74,6 +62,7 @@ class Reset(resource.Resource):
     isLeaf = True
 
     def __init__(self, conn):
+        super().__init__()
         self.__conn = conn
 
     def render_GET(self, request):
