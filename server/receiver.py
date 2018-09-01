@@ -10,14 +10,14 @@ log = logging.getLogger(__name__)
 
 
 class Receiver(DatagramProtocol):
-    def __init__(self, nolock, logic_handler):
+    def __init__(self, nolock, state_handler):
         super().__init__()
         self.__initialized = False
-        self._source_ip = None
+        self.source_ip = None
         self.__source_port = None
         self.__lock_port = not nolock
-        self.__logic = logic_handler
-        self.__expect_task = task.LoopingCall(self.__logic.expect_packet)
+        self.__state = state_handler
+        self.__expect_task = task.LoopingCall(self.__state.expect_packet)
         self.__reset_task = None
         self.__pending_reset = None
 
@@ -25,11 +25,11 @@ class Receiver(DatagramProtocol):
         # Step 1: lock/verify
         host, port = info
         # log.debug("Received {} from {}:{}".format(data, host, port))
-        if self._source_ip or self.__source_port:
-            if host != self._source_ip:
+        if self.source_ip or self.__source_port:
+            if host != self.source_ip:
                 log.error(
                     "Received packet from unknown ip " +
-                    "({}, expected {}), ignoring".format(host, self._source_ip)
+                    "({}, expected {}), ignoring".format(host, self.source_ip)
                 )
                 msg = {'type': 'info', 'content': "unknown ip, ignoring"}
                 self._send_json(msg, info)
@@ -47,7 +47,7 @@ class Receiver(DatagramProtocol):
                 pass
         else:
             log.info("Locking receipts to: {}:{}".format(host, port))
-            self._source_ip = host
+            self.source_ip = host
             self.__source_port = port
 
         # Step 2: strip
@@ -69,7 +69,7 @@ class Receiver(DatagramProtocol):
             if self.__initialized:
                 log.warning("Already shook hands, resetting state...")
                 self.__expect_task.stop()
-                self.__logic.reset_state()
+                self.__state.reset_state()
                 # return
             if self.__pending_reset:  # API waiting
                 self.__pending_reset.write(
@@ -86,7 +86,7 @@ class Receiver(DatagramProtocol):
             self._send_json(msg, info)
         elif data['type'] == "next_packet":
             # TODO: if not initialized, initialize - guess
-            self.__logic.received(data['packet_id'], self)
+            self.__state.received(data['packet_id'], self)
         else:
             log.error("received unknown data: {}".format(data))
 
@@ -94,7 +94,7 @@ class Receiver(DatagramProtocol):
         encoded = bytes(json.dumps(data), "ascii")
         assert(len(encoded) <= MTU)
         if info is None:
-            info = (self._source_ip, self.__source_port)
+            info = (self.source_ip, self.__source_port)
         log.debug("Sending {}".format(encoded))
         self.transport.write(encoded, info)
 

@@ -6,12 +6,15 @@ from collections import OrderedDict
 log = logging.getLogger(__name__)
 
 
-class Logic():
+class State:
     def __init__(self, threshold):
         self.__threshold = threshold
-        self.reset_state()
-        # self.__n_out_of_order = 0
-        # self.__packet_losses = 0
+        self.__expected_packet_id = 0
+        self.__total_packets = 0
+        self.__max_packet_id = 0
+        self.__n_out_of_order = 0
+        self.__packet_losses = 0
+        # self.reset_state()
 
     def reset_state(self):
         self.__expected_packet_id = 0
@@ -48,9 +51,13 @@ class Logic():
         self.__total_packets += 1
 
     def expect_packet(self):
+        """This is called with often, with a frequency of "packets per second".
+
+        Note: if we have a perf bottleneck, we could call this method less
+        frequently and calculate self.__expected_packet_id more cleverly
+
+        """
         log.debug("Expecting packet: {}".format(self.__expected_packet_id))
-        # Note: if we have a perf bottleneck, we could just call this less
-        # often and calculate __expected_packet_id more cleverly
         self.__expected_packet_id += 1
         old_losses = self.__packet_losses
         new_losses = max(
@@ -64,6 +71,7 @@ class Logic():
                 "[Fail] Most likely lost a packet for a total of: {}".format(
                     new_losses))
             self.__packet_losses = new_losses
+
         elif new_losses < old_losses:
             # This means we eventually received packets either out of order or
             # we thought we lost
@@ -73,7 +81,7 @@ class Logic():
             #     "out of order? Shouldn't happen?")
 
     def __repr__(self):
-        ret = OrderedDict()
+        ret = OrderedDict()  # can use {} in python3.6+
         ret["Next expected packet id"] = self.__expected_packet_id
         ret["Highest received packet id"] = self.__max_packet_id
         ret["Total received packets"] = self.__total_packets

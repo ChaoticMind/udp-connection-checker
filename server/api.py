@@ -11,11 +11,11 @@ log = logging.getLogger(__name__)
 
 class HttpApi(resource.Resource):
     """Root resource"""
-    def __init__(self, conn, logic):
+    def __init__(self, conn, state):
         super(HttpApi, self).__init__()
         self.putChild(b"help", GenerateHelp())
         self.putChild(b"metrics", MetricsResource())
-        self.putChild(b"status", Status(logic))
+        self.putChild(b"status", Status(state))
         self.putChild(b"reset", Reset(conn))
 
     def getChild(self, name, req):
@@ -32,7 +32,7 @@ class GenerateHelp(resource.Resource):
 
     def render_GET(self, request):
         log.debug('[HTTP API]: Received "help" request')
-        help_str = OrderedDict()
+        help_str = OrderedDict()  # can use {} in python3.6+
         help_str['/help'] = "Lists API calls (this message)"
         help_str['/metrics'] = "Lists metrics"
         help_str['/status'] = "Lists status"
@@ -46,15 +46,15 @@ class Status(resource.Resource):
     """Human readable metric data"""
     isLeaf = True
 
-    def __init__(self, logic):
+    def __init__(self, state):
         super().__init__()
-        self.__logic = logic
+        self.__state = state
 
     def render_GET(self, request):
         log.debug('[HTTP API]: Received "status" request')
         request.responseHeaders.addRawHeader(
             b"content-type", b"application/json")
-        return bytes(repr(self.__logic), 'utf-8')
+        return bytes(repr(self.__state), 'utf-8')
 
 
 class Reset(resource.Resource):
@@ -67,7 +67,7 @@ class Reset(resource.Resource):
 
     def render_GET(self, request):
         log.debug('[HTTP API]: Received "reset" request')
-        if self.__conn._source_ip:
+        if self.__conn.source_ip:
             self.__conn.reset_connection(request)
             return server.NOT_DONE_YET
         else:

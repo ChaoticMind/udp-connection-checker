@@ -7,7 +7,7 @@ from twisted.web import server
 
 from server.api import HttpApi
 from server.receiver import Receiver
-from server.main_loop import Logic
+from server.main_loop import State
 
 
 log = logging.getLogger(__name__)
@@ -58,10 +58,10 @@ def main():
 
     # main loop
     log.info("Starting main loop...")
-    l = Logic(args.threshold)
-    conn = Receiver(args.dont_lock_port, l)
+    state = State(args.threshold)
+    conn = Receiver(args.dont_lock_port, state)
 
-    site = server.Site(HttpApi(conn, l))
+    site = server.Site(HttpApi(conn, state))
     reactor.listenTCP(args.http_port, site)
     reactor.listenUDP(args.udp_port, conn)
     reactor.run()
