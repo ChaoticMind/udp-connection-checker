@@ -5,6 +5,10 @@ from twisted.trial import unittest
 
 from client.sender import Sender
 
+logger = logging.getLogger()
+logger.addHandler(logging.StreamHandler())
+logger.setLevel(logging.DEBUG)
+
 
 class MockSender(Sender):
     def __init__(self):
@@ -16,11 +20,6 @@ class MockSender(Sender):
             dst_port=4242,
             pps=1,
         )
-
-
-logger = logging.getLogger()
-logger.addHandler(logging.StreamHandler())
-logger.setLevel(logging.DEBUG)
 
 
 class TestReceivePacket(unittest.TestCase):

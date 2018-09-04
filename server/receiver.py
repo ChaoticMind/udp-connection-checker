@@ -95,6 +95,10 @@ class Receiver(DatagramProtocol):
         assert(len(encoded) <= MTU)
         if info is None:
             info = (self.source_ip, self.__source_port)
+            if self.source_ip is None or self.__source_port is None:
+                log.critical(
+                    "Attempted to send a message with undefined destination")
+                return
         log.debug("Sending {}".format(encoded))
         self.transport.write(encoded, info)
 

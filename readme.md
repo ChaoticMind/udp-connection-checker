@@ -61,3 +61,4 @@ The `metrics` endpoint is specifically targetting prometheus, and is generated v
 	- client sends data without handshake
 	- client sends handshake that never gets ACKed (it should keep retrying)
 - API reset (multiple resets with no ACKS, multiple ACKS, etc)
+- client starts from a different ip/port

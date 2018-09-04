@@ -7,7 +7,7 @@ from twisted.web import server
 
 from server.api import HttpApi
 from server.receiver import Receiver
-from server.main_loop import State
+from server.state import State
 
 
 log = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ def main():
         help="udp port to listen on for keep-alive packets")
     parser.add_argument(
         '-t', '--threshold', default=2, type=int,
-        help="number of packets received before we count a packet as either" +
+        help="number of packets received before we count a packet as either " +
         "out-of-order or lost")
     parser.add_argument(
         '-d', '--dont-lock-port', action='store_true',
