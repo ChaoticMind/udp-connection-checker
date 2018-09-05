@@ -4,15 +4,17 @@ import json
 from twisted.trial import unittest
 
 from client.sender import Sender
+from client import MTU
 
 logger = logging.getLogger()
 logger.addHandler(logging.StreamHandler())
 logger.setLevel(logging.DEBUG)
 
 
-class MockSender(Sender):
-    def __init__(self):
-        super().__init__(
+class SenderFactory:
+    @staticmethod
+    def create():
+        return Sender(
             jitter=0,
             src_port=8080,
             pad=None,
@@ -24,7 +26,7 @@ class MockSender(Sender):
 
 class TestReceivePacket(unittest.TestCase):
     def setUp(self):
-        self.sender = MockSender()
+        self.sender = SenderFactory.create()
         # self.clock = task.Clock()
         # self.sender.DEFAULT_CLOCK = self.clock
         logging.disable(logging.DEBUG)  # activate logging
@@ -67,7 +69,7 @@ class TestReceivePacket(unittest.TestCase):
 
 class TestReset(unittest.TestCase):
     def setUp(self):
-        self.sender = MockSender()
+        self.sender = SenderFactory.create()
 
     def tearDown(self):
         self.sender.cleanup()
@@ -84,7 +86,7 @@ class TestReset(unittest.TestCase):
 
 class TestHandshake(unittest.TestCase):
     def setUp(self):
-        self.sender = MockSender()
+        self.sender = SenderFactory.create()
         logging.disable(logging.DEBUG)
 
     def tearDown(self):
@@ -105,3 +107,20 @@ class TestHandshake(unittest.TestCase):
         self.assertTrue(self.sender.process_handshake_ack())
         self.assertTrue(self.sender.process_reset())
         self.assertTrue(self.sender.process_handshake_ack())
+
+
+class TestPadding(unittest.TestCase):
+    def setUp(self):
+        self.sender = SenderFactory.create()
+        logging.disable(logging.DEBUG)
+
+    def tearDown(self):
+        self.sender.cleanup()
+
+    # tests
+    def test_padding(self):
+        encoded = bytes("test", "ascii")
+        self.assertLess(len(encoded), MTU)
+        data = self.sender._pad_data(encoded)
+        self.assertGreater(data, encoded)
+        self.assertEquals(len(data), MTU)

@@ -105,21 +105,26 @@ class Sender(DatagramProtocol):
                 ", ignoring...")
             return False
 
+    def _pad_data(self, data):
+        """`data` is bytes, not str"""
+        to_pad = MTU - len(data)
+        assert(to_pad >= 0)
+        log.debug("Padding with {} bytes)".format(to_pad))
+        # padding = [random.randint(0, 127) for x in range(to_pad)]
+        padding = RANDOM_PADDING[:to_pad]
+        # not having the padding be different every time results in
+        # considerably less cpu usage
+        data += bytes(padding)
+        assert(len(data) <= MTU)
+        return data
+
     def _send_json(self, data, pad):
         encoded = bytes(json.dumps(data), "ascii")
-        to_pad = MTU - len(encoded)
-        assert(to_pad >= 0)
         if pad:
-            log.debug(
-                "Sending {} (+ {} bytes padding)".format(encoded, to_pad))
-            # padding = [random.randint(0, 127) for x in range(to_pad)]
-            padding = RANDOM_PADDING[:to_pad]
-            # not having the padding be different every time results in about
-            # ~ 6x less cpu usage
-            encoded += bytes(padding)
-            assert(len(encoded) <= MTU)
+            log.info("Sending {} (with padded data)".format(encoded))
+            encoded = self._pad_data(encoded)
         else:
-            log.debug("Sending {}".format(encoded))
+            log.info("Sending {}".format(encoded))
 
         info = (self.__dst_ip, self.__dst_port)
         if self.__jitter:
