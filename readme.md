@@ -132,7 +132,6 @@ via the [prometheus client](https://github.com/prometheus/client_python)
 	- ctrl + c on server then up enter (with and without jitter)
 	- another client connects (with and without -d)
 	- another server instance starts
-	- client receives multiple aborts
 	- client receives multiple resets
 	- client starts before the server starts (with and without jitter)
 	- client sends data without handshake

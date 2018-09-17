@@ -67,8 +67,7 @@ class Sender(DatagramProtocol):
             self.process_reset()
 
         elif data['type'] == "abort":
-            log.warning("Received 'abort' request, stopping task")
-            self.__send_task.stop()
+            self.process_abort()
 
         elif data['type'] == "info":
             log.warning("received message: {}".format(data['content']))
@@ -104,6 +103,13 @@ class Sender(DatagramProtocol):
                 "Received reset request while a handshake was pending..."
                 ", ignoring...")
             return False
+
+    def process_abort(self):
+        log.warning("Received 'abort' request, stopping task")
+        if self.__send_task.running:
+            self.__send_task.stop()
+            return True
+        return False
 
     def _pad_data(self, data):
         """`data` is bytes, not str"""

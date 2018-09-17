@@ -124,3 +124,24 @@ class TestPadding(unittest.TestCase):
         data = self.sender._pad_data(encoded)
         self.assertGreater(data, encoded)
         self.assertEquals(len(data), MTU)
+
+
+class TestAbort(unittest.TestCase):
+    def setUp(self):
+        self.sender = SenderFactory.create()
+        logging.disable(logging.DEBUG)
+
+    def tearDown(self):
+        self.sender.cleanup()
+
+    # tests
+    def test_abort(self):
+        logging.disable(logging.ERROR)
+        self.assertTrue(self.sender.process_handshake_ack())
+        self.assertTrue(self.sender.process_abort())
+
+    def test_multiple_aborts(self):
+        logging.disable(logging.ERROR)
+        self.assertTrue(self.sender.process_handshake_ack())
+        self.assertTrue(self.sender.process_abort())
+        self.assertFalse(self.sender.process_abort())
