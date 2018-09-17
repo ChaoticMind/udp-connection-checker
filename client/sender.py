@@ -136,7 +136,7 @@ class Sender(DatagramProtocol):
                 self.transport.write(encoded, info)
             except AttributeError:
                 # self.transport.connect(self.__dst_ip, self.__dst_port)
-                log.warning("Could not send data...")
+                log.error("Could not send data to peer: {}".format(info))
 
     def __send_handshake(self):
         data = {

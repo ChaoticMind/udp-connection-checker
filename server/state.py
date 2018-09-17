@@ -37,13 +37,13 @@ class State:
                 "ignoring packet")
             # could possibly not do anything in this case
             conn.abort_connection()
-            return
+            return False
 
         if packet_id > self._max_packet_id:
             log.info("Received in-order packet {}".format(packet_id))
             self._n_in_order_packets += 1
             self._max_packet_id = packet_id
-            return
+            return True
 
         min_packet_id = self._max_packet_id - self.__threshold
 
@@ -56,6 +56,7 @@ class State:
                 "Received a very old packet. " +
                 "It is considered lost by now...")
             self._n_late_packets += 1
+        return False
 
     def expect_packet(self):
         """This is called with often, with a frequency of "packets per second".

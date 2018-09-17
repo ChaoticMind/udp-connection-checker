@@ -71,4 +71,4 @@ class Reset(resource.Resource):
             self.__conn.reset_connection(request)
             return server.NOT_DONE_YET
         else:
-            return b"Connection not yet initialized"
+            return b"Connection to client not yet initialized"

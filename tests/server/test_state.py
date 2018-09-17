@@ -1,7 +1,6 @@
 import logging
 
 from twisted.trial import unittest
-from twisted.internet.udp import Port
 
 from server.state import State
 from server.receiver import Receiver
@@ -17,9 +16,7 @@ class TestStateExpectPacket(unittest.TestCase):
         self.threshold = 2
         self.state = State(threshold=self.threshold)
         self.conn = Receiver(nolock=True, state_handler=self.state)
-        transport = Port(42, self.conn)
         self.conn.abort_connection = FunctionCalled(do_nothing)
-        self.conn.makeConnection(transport)
         # logging.disable(logging.DEBUG)  # activate logging
 
     def tearDown(self):
@@ -52,9 +49,7 @@ class TestStateReceived(unittest.TestCase):
         self.threshold = 2
         self.state = State(threshold=self.threshold)
         self.conn = Receiver(nolock=True, state_handler=self.state)
-        transport = Port(42, self.conn)
         self.conn.abort_connection = FunctionCalled(do_nothing)
-        self.conn.makeConnection(transport)
         logging.disable(logging.DEBUG)  # activate logging
 
     def tearDown(self):
@@ -65,7 +60,7 @@ class TestStateReceived(unittest.TestCase):
         old_n_in_order = self.state._n_in_order_packets
         old_n_out_of_order = self.state._n_out_of_order
         logging.disable(logging.INFO)
-        self.state.received(1, self.conn)
+        self.assertTrue(self.state.received(1, self.conn))
         self.assertFalse(self.conn.abort_connection.called)
         self.assertEquals(self.state._max_packet_id, 1)
         self.assertEquals(self.state._n_in_order_packets, old_n_in_order + 1)
@@ -78,7 +73,7 @@ class TestStateReceived(unittest.TestCase):
         old_n_in_order = self.state._n_in_order_packets
         old_n_out_of_order = self.state._n_out_of_order
         self.assertFalse(self.conn.abort_connection.called)
-        self.state.received(10, self.conn)
+        self.assertFalse(self.state.received(10, self.conn))
         self.assertTrue(self.conn.abort_connection.called)
         self.assertEquals(self.state._max_packet_id, old_max_id)
         self.assertEquals(self.state._n_in_order_packets, old_n_in_order)
@@ -92,7 +87,7 @@ class TestStateReceived(unittest.TestCase):
         old_n_out_of_order = self.state._n_out_of_order
         old_n_late_packets = self.state._n_late_packets
         logging.disable(logging.ERROR)
-        self.state.received(1, self.conn)
+        self.assertFalse(self.state.received(1, self.conn))
         self.assertEquals(self.state._max_packet_id, old_max_id)
         self.assertEquals(self.state._n_in_order_packets, old_n_in_order)
         self.assertEquals(self.state._n_out_of_order, old_n_out_of_order + 1)
@@ -100,7 +95,7 @@ class TestStateReceived(unittest.TestCase):
 
     def tests_received_first_packet(self):
         logging.disable(logging.INFO)
-        self.state.received(0, self.conn)
+        self.assertTrue(self.state.received(0, self.conn))
         self.assertEquals(self.state._n_in_order_packets, 1)
 
     def tests_received_very_old_packet(self):
@@ -113,7 +108,7 @@ class TestStateReceived(unittest.TestCase):
         old_n_out_of_order = self.state._n_out_of_order
         old_n_late_packets = self.state._n_late_packets
         logging.disable(logging.ERROR)
-        self.state.received(1, self.conn)
+        self.assertFalse(self.state.received(1, self.conn))
         self.assertEquals(self.state._max_packet_id, old_max_id)
         self.assertEquals(self.state._n_in_order_packets, old_n_in_order)
         self.assertEquals(self.state._n_out_of_order, old_n_out_of_order)
