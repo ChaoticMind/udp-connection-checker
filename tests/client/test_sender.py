@@ -27,8 +27,6 @@ class SenderFactory:
 class TestReceivePacket(unittest.TestCase):
     def setUp(self):
         self.sender = SenderFactory.create()
-        # self.clock = task.Clock()
-        # self.sender.DEFAULT_CLOCK = self.clock
         logging.disable(logging.DEBUG)  # activate logging
 
     def tearDown(self):

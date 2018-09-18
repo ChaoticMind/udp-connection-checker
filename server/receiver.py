@@ -184,6 +184,8 @@ class Receiver(DatagramProtocol):
             log.error("Could not send data to peer: {}".format(info))
 
     def reset_connection(self, request):
+        if self._pending_reset_request:  # API waiting
+            self._pending_reset_request.complete_reset_request()
         self._pending_reset_request = ResetRequest(request, self._send_json)
 
     @staticmethod

@@ -181,6 +181,12 @@ class TestReceivedPacket(unittest.TestCase):
         self.receive_packet({"type": "handshake", "pps": 1})
         self.assertIsNone(self.receiver._pending_reset_request)
 
+    def test_double_reset(self):
+        self.assertIsNone(self.receiver._pending_reset_request)
+        self.receiver.reset_connection(MockRequest())
+        self.receiver.reset_connection(MockRequest())
+        self.receive_packet({"type": "handshake", "pps": 1})
+
     def test_next_packet_no_id(self):
         logging.disable(logging.ERROR)
         self.assertFalse(self.receiver._process_next_packet.called)
