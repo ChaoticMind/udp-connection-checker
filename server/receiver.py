@@ -1,5 +1,6 @@
 import logging
 import json
+import functools
 
 from twisted.internet import task
 from twisted.internet.protocol import DatagramProtocol
@@ -21,26 +22,46 @@ class Receiver(DatagramProtocol):
         self.__expect_task = task.LoopingCall(self.__state.expect_packet)
         self._pending_reset_request = None
 
-    def _verify_or_lock(self, info):
+    def _verify(self, info):
+        host, port = info
+        if not self.source_ip or not self.__source_port:
+            log.error(
+                "Received non-handshake packet as a first packet. Ignoring..."
+            )
+            return False
+        elif host != self.source_ip or port != self.__source_port:
+            log.error(
+                "Received non-handshake packet from unknown ip/port " +
+                "({}:{}, expected {}:{}), ignoring".format(
+                    host, port, self.source_ip, self.__source_port)
+            )
+            return False
+        else:
+            return True
+
+    def _lock(self, info):
         host, port = info
         if self.source_ip or self.__source_port:
             if host != self.source_ip:
                 log.error(
-                    "Received packet from unknown ip " +
+                    "Received handshake packet from unknown ip " +
                     "({}, expected {}), ignoring".format(host, self.source_ip)
                 )
                 return {'type': 'info', 'content': "unknown ip, ignoring"}
             elif self.__lock_port and port != self.__source_port:
                 log.error(
-                    "Received packet from unknown port " +
+                    "Received handshake packet from unknown port " +
                     "({}, expected {}), ignoring".format(
                         port, self.__source_port)
                 )
                 return {'type': 'info', 'content': "unknown port, ignoring"}
 
-            else:  # correct ip:port
+            else:  # correct or allowed ip:port
+                log.info("Re-locking receipts to: {}:{}".format(host, port))
+                self.source_ip = host
+                self.__source_port = port
                 return
-        else:
+        else:  # haven't yet locked
             log.info("Locking receipts to: {}:{}".format(host, port))
             self.source_ip = host
             self.__source_port = port
@@ -74,8 +95,9 @@ class Receiver(DatagramProtocol):
         d.addErrback(self.__expect_task_errback)
         return {"type": "ack"}
 
-    def _process_next_packet(self, packet_id):
-        self.__state.received(packet_id, self)
+    def _process_next_packet(self, packet_id, info):
+        abort_connection = functools.partial(self.abort_connection, info)
+        self.__state.received(packet_id, abort_connection)
 
     def cleanup(self):
         if self.__expect_task.running:
@@ -83,13 +105,7 @@ class Receiver(DatagramProtocol):
 
     def datagramReceived(self, data, info):
         # log.debug("Received {} from {}:{}".format(data, host, port))
-        # Step 1: lock/verify
-        ret = self._verify_or_lock(info)
-        if ret is not None:
-            self._send_json(ret, info)
-            return
-
-        # Step 2: decode
+        # Decode
         try:
             decoded = data.decode("ascii")
         except AttributeError:
@@ -97,7 +113,7 @@ class Receiver(DatagramProtocol):
                 "Received none ascii-encoded data: {}, ignoring".format(data))
             return
 
-        # Step 3: strip
+        # Strip
         try:
             stripped = self._strip_padding(decoded)
         except ValueError:
@@ -107,7 +123,7 @@ class Receiver(DatagramProtocol):
                     PADDING_DELIMITER, decoded))
             return
 
-        # Step 4: process packet
+        # Process packet
         data = json.loads(stripped)
         try:
             packet_type = data['type']
@@ -123,18 +139,31 @@ class Receiver(DatagramProtocol):
                 log.error(
                     "Bad 'pps' key in handshake packet: {}".format(data))
                 return
+            msg = self._lock(info)
+            if msg:  # failed to lock
+                return self._send_json(msg, info)
             msg = self._process_handshake(pps)
-            if msg:
-                self._send_json(msg, info)
+            self._send_json(msg)
+            return
 
-        elif packet_type == "next_packet":
+        # Other packets (not handshake) need to have their source verified
+        else:
+            if not self._verify(info):
+                self._send_json(
+                    {'type': 'info', 'content': "unknown ip/port, ignoring"},
+                    info,
+                )
+                # Might want to abort or reset here
+                return
+
+        if packet_type == "next_packet":
             try:
                 packet_id = int(data['packet_id'])
             except (KeyError, ValueError):
                 log.error(
                     "Bad 'packet_id' key in handshake packet: {}".format(data))
                 return
-            self._process_next_packet(packet_id)
+            self._process_next_packet(packet_id, info)
 
         else:
             log.error("received unknown data: {}".format(data))
@@ -162,9 +191,9 @@ class Receiver(DatagramProtocol):
         log.error("expect_packet() failed with:")
         print(reason.getTraceback())
 
-    def abort_connection(self):
+    def abort_connection(self, info):
         msg = {'type': "abort"}
-        self._send_json(msg)
+        self._send_json(msg, info)
 
 
 class ResetRequest:

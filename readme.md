@@ -118,9 +118,6 @@ via the [prometheus client](https://github.com/prometheus/client_python)
 
 ### Features
 
-- Allow disconnections/reconnections without restarting both programs
- - server ctrl+c (with jitter?) looping call cancelled
-	- permission denied on the client if a firewall rule is present
 - Use prometheus counters
 - For high thresholds, it seems that we don't register packet losses properly
 
@@ -131,10 +128,6 @@ via the [prometheus client](https://github.com/prometheus/client_python)
 	- ctrl + c on client then up enter
 	- ctrl + c on server then up enter (with and without jitter)
 	- another client connects (with and without -d)
-	- another server instance starts
-	- client receives multiple resets
 	- client starts before the server starts (with and without jitter)
-	- client sends data without handshake
 	- client sends handshake that never gets ACKed (it should keep retrying)
 - API reset (multiple resets with no ACKS, multiple ACKS, etc)
-- client starts from a different ip/port

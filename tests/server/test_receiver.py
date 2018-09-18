@@ -40,40 +40,38 @@ class TestVerifyOrLock(unittest.TestCase):
     def test_lock_state(self):
         logging.disable(logging.INFO)
         self.assertIsNone(self.receiver.source_ip)
-        self.receiver._verify_or_lock(self.info)
+        self.assertIsNone(self.receiver._lock(self.info))
         self.assertIsNotNone(self.receiver.source_ip)
 
-    def test_verify_success(self):
+    def test_lock_success(self):
         logging.disable(logging.INFO)
-        self.assertIsNone(self.receiver._verify_or_lock(self.info))
-        self.assertIsNone(self.receiver._verify_or_lock(self.info))
+        self.assertIsNone(self.receiver._lock(self.info))
+        self.assertIsNone(self.receiver._lock(self.info))
 
     def test_host_changed(self):
         logging.disable(logging.ERROR)
-        self.assertIsNone(self.receiver._verify_or_lock(self.info))
-        ret = self.receiver._verify_or_lock(("other_host", 4242))
-        self.assertEquals(
-            ret, {'type': 'info', 'content': "unknown ip, ignoring"})
+        self.assertIsNone(self.receiver._lock(self.info))
+        self.assertTrue(self.receiver._verify(self.info))
+        self.assertFalse(self.receiver._verify(("other_host", 4242)))
 
     def test_port_changed(self):
         logging.disable(logging.ERROR)
-        self.assertIsNone(self.receiver._verify_or_lock(self.info))
-        ret = self.receiver._verify_or_lock(("localhost", 4444))
-        self.assertEquals(
-            ret, {'type': 'info', 'content': "unknown port, ignoring"})
+        self.assertIsNone(self.receiver._lock(self.info))
+        self.assertTrue(self.receiver._verify(self.info))
+        self.assertFalse(self.receiver._verify(("localhost", 4444)))
         self.receiver._process_handshake = FunctionCalled(
             self.receiver._process_handshake)
 
         payload = bytes(json.dumps({'type': "handshake", 'pps': 1}), "ascii")
         self.receiver.datagramReceived(payload, ("localhost", 4444))
+        self.assertIsNotNone(self.receiver._lock(("localhost", 4444)))
         self.assertFalse(self.receiver._process_handshake.called)
 
     def test_port_changed_allowed(self):
         logging.disable(logging.ERROR)
         self.receiver = ReceiverFactory.create(nolock=True)
-        self.assertIsNone(self.receiver._verify_or_lock(self.info))
-        ret = self.receiver._verify_or_lock(("localhost", 4444))
-        self.assertIsNone(ret)
+        self.assertIsNone(self.receiver._lock(self.info))
+        self.assertIsNone(self.receiver._lock(("localhost", 4444)))
 
 
 class TestStripPadding(unittest.TestCase):
@@ -134,14 +132,14 @@ class TestReceivedPacket(unittest.TestCase):
             self.receiver._process_handshake)
         self.receiver._process_next_packet = FunctionCalled(
             self.receiver._process_next_packet)
+        self.info = "127.0.0.1", 4242
 
     def tearDown(self):
         self.receiver.cleanup()
 
     def receive_packet(self, msg):
-        info = "127.0.0.1", 4242
         encoded = bytes(json.dumps(msg), "ascii")
-        self.receiver.datagramReceived(encoded, info)
+        self.receiver.datagramReceived(encoded, self.info)
 
     # tests
     def test_bad_type(self):
@@ -193,6 +191,13 @@ class TestReceivedPacket(unittest.TestCase):
 
     def test_next_packet_id(self):
         logging.disable(logging.ERROR)
+        self.assertIsNone(self.receiver._lock(self.info))
         self.assertFalse(self.receiver._process_next_packet.called)
         self.receive_packet({"type": "next_packet", 'packet_id': 1})
         self.assertTrue(self.receiver._process_next_packet.called)
+
+    def test_packet_id_no_handshake(self):
+        logging.disable(logging.ERROR)
+        self.assertFalse(self.receiver._process_next_packet.called)
+        self.receive_packet({"type": "next_packet", 'packet_id': 1})
+        self.assertFalse(self.receiver._process_next_packet.called)

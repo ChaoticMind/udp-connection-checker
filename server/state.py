@@ -29,14 +29,14 @@ class State:
         self.__packet_losses = 0
         self._n_late_packets = 0
 
-    def received(self, packet_id, conn):
+    def received(self, packet_id, abort_callback):
         if packet_id >= self.__expected_packet_id + self.__threshold:
             log.critical(
                 "Received a packet that's too far in the future." +
                 "Something is wrong. Requesting abort from client and " +
                 "ignoring packet")
             # could possibly not do anything in this case
-            conn.abort_connection()
+            abort_callback()
             return False
 
         if packet_id > self._max_packet_id:
