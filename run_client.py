@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+import sys
 
 from twisted.internet import reactor
+from twisted.internet.error import CannotListenError
 
 from client import MTU
 from client.sender import Sender
@@ -80,20 +82,27 @@ def main():
     if pad:
         mbps = (pps * MTU) / 1024 / 1024
         log.info(
-            "Sending {} packet{} per second ".format(
+            "Will send {} packet{} per second ".format(
                 pps, 's' if not pps == 1 else '') +
             "({:.4f} MiB/s - {:.4f} MBit/s)".format(mbps, mbps * 8))
     else:
         log.info(
-            "Sending {} packet{} per second".format(
+            "Will send {} packet{} per second".format(
                 pps, 's' if not pps == 1 else ''))
 
     # main loop
-    log.info("Starting main loop...")
     s = Sender(args.jitter, port, pad, args.dst_ip, args.dst_port, pps)
 
-    reactor.listenUDP(port, s)
-    reactor.run()
+    try:
+        reactor.listenUDP(port, s)
+    except CannotListenError:
+        print(
+            "Couldn't listen to UDP port {}, aborting...".format(port),
+            file=sys.stderr)
+        sys.exit(1)
+    else:
+        log.info("Starting main loop...")
+        reactor.run()
 
 
 if __name__ == '__main__':

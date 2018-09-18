@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+import sys
 
 from twisted.internet import reactor
+from twisted.internet.error import CannotListenError
 from twisted.web import server
 
 from server.api import HttpApi
@@ -57,14 +59,23 @@ def main():
     logger.setLevel(level)
 
     # main loop
-    log.info("Starting main loop...")
     state = State(args.threshold)
     conn = Receiver(args.dont_lock_port, state)
 
     site = server.Site(HttpApi(conn, state))
-    reactor.listenTCP(args.http_port, site)
-    reactor.listenUDP(args.udp_port, conn)
-    reactor.run()
+    try:
+        reactor.listenTCP(args.http_port, site)
+        reactor.listenUDP(args.udp_port, conn)
+    except CannotListenError:
+        print(
+            "Couldn't listen to ports {} (TCP) and {} (UDP). "
+            "One or both of them are in use, aborting...".format(
+                args.http_port, args.udp_port),
+            file=sys.stderr)
+        sys.exit(1)
+    else:
+        log.info("Starting main loop...")
+        reactor.run()
 
 
 if __name__ == '__main__':
