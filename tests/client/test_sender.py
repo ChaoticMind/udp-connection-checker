@@ -83,6 +83,12 @@ class TestReset(unittest.TestCase):
         self.assertTrue(self.sender.process_reset())
         self.assertEquals(self.sender._next_packet_id, 0)
 
+    def test_multiple_resets(self):
+        self.sender.process_handshake_ack()
+        self.assertTrue(self.sender.process_reset())
+        self.assertFalse(self.sender.process_reset())
+        self.assertEquals(self.sender._next_packet_id, 0)
+
 
 class TestHandshake(unittest.TestCase):
     def setUp(self):
