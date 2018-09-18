@@ -61,6 +61,12 @@ class TestVerifyOrLock(unittest.TestCase):
         ret = self.receiver._verify_or_lock(("localhost", 4444))
         self.assertEquals(
             ret, {'type': 'info', 'content': "unknown port, ignoring"})
+        self.receiver._process_handshake = FunctionCalled(
+            self.receiver._process_handshake)
+
+        payload = bytes(json.dumps({'type': "handshake", 'pps': 1}), "ascii")
+        self.receiver.datagramReceived(payload, ("localhost", 4444))
+        self.assertFalse(self.receiver._process_handshake.called)
 
     def test_port_changed_allowed(self):
         logging.disable(logging.ERROR)

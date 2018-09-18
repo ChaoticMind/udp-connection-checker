@@ -87,6 +87,7 @@ class Receiver(DatagramProtocol):
         ret = self._verify_or_lock(info)
         if ret is not None:
             self._send_json(ret, info)
+            return
 
         # Step 2: decode
         try:
