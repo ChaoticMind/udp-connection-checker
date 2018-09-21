@@ -97,5 +97,6 @@ class State:
         ret["Total received packets in-order"] = self._n_in_order_packets
         ret["Number of out of order packets"] = self._n_out_of_order
         ret["Number of packets lost"] = self.__packet_losses
-        ret["Number late packets eventually received"] = self._n_late_packets
+        ret["Number of late packets eventually received"] = (
+            self._n_late_packets)
         return json.dumps(ret)

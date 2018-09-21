@@ -119,7 +119,8 @@ via the [prometheus client](https://github.com/prometheus/client_python)
 ### Features
 
 - Use prometheus counters
-- For high thresholds, it seems that we don't register packet losses properly
+- Move all control packets (handshake/reset/...) to TCP
+- Make 'threshold' take seconds instead of number of packets
 
 
 ### Write tests for:

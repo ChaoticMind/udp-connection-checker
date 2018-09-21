@@ -124,7 +124,7 @@ class Sender(DatagramProtocol):
         assert(len(data) <= MTU)
         return data
 
-    def _send_json(self, data, pad):
+    def _send_json(self, data, pad, ignore_jitter=False):
         encoded = bytes(json.dumps(data), "ascii")
         if pad:
             log.info("Sending {} (with padded data)".format(encoded))
@@ -133,8 +133,9 @@ class Sender(DatagramProtocol):
             log.info("Sending {}".format(encoded))
 
         info = (self.__dst_ip, self.__dst_port)
-        if self.__jitter:
+        if self.__jitter and not ignore_jitter:
             jitter_s = random.randint(0, self.__jitter) / 1000
+            log.info("delaying packet by {}s...".format(jitter_s))
             # jitter helps simulate fake out-of-order packets
             reactor.callLater(jitter_s, self.transport.write, encoded, info)
         else:
@@ -153,7 +154,7 @@ class Sender(DatagramProtocol):
             'pps': self.__pps,
         }
         log.info("sending handshake")
-        self._send_json(data, pad=False)
+        self._send_json(data, pad=False, ignore_jitter=True)
 
     @staticmethod
     def __send_handshake_errback(reason):
