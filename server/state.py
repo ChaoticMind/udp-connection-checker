@@ -30,7 +30,7 @@ class State:
         self._n_late_packets = 0
 
     def received(self, packet_id, abort_callback):
-        if packet_id >= self.__expected_packet_id + self.__threshold:
+        if packet_id > self.__expected_packet_id:
             log.critical(
                 "Received a packet that's too far in the future." +
                 "Something is wrong. Requesting abort from client and " +

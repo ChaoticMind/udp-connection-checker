@@ -60,20 +60,20 @@ class TestStateReceived(unittest.TestCase):
         old_n_in_order = self.state._n_in_order_packets
         old_n_out_of_order = self.state._n_out_of_order
         logging.disable(logging.INFO)
-        self.assertTrue(self.state.received(1, do_nothing()))
+        self.assertTrue(self.state.received(0, do_nothing()))
         self.assertFalse(self.conn.abort_connection.called)
-        self.assertEquals(self.state._max_packet_id, 1)
+        self.assertEquals(self.state._max_packet_id, 0)
         self.assertEquals(self.state._n_in_order_packets, old_n_in_order + 1)
         self.assertEquals(self.state._n_out_of_order, old_n_out_of_order)
 
     def tests_received_future_packet(self):
         logging.disable(logging.CRITICAL)
-        self.state.received(1, do_nothing())
+        self.state.received(0, do_nothing())
         old_max_id = self.state._max_packet_id
         old_n_in_order = self.state._n_in_order_packets
         old_n_out_of_order = self.state._n_out_of_order
         self.assertFalse(self.conn.abort_connection.called)
-        self.assertFalse(self.state.received(10, self.conn.abort_connection))
+        self.assertFalse(self.state.received(9, self.conn.abort_connection))
         self.assertTrue(self.conn.abort_connection.called)
         self.assertEquals(self.state._max_packet_id, old_max_id)
         self.assertEquals(self.state._n_in_order_packets, old_n_in_order)
@@ -81,13 +81,13 @@ class TestStateReceived(unittest.TestCase):
 
     def tests_received_out_of_order_packet(self):
         logging.disable(logging.INFO)
-        self.state.received(1, do_nothing())
+        self.state.received(0, do_nothing())
         old_max_id = self.state._max_packet_id
         old_n_in_order = self.state._n_in_order_packets
         old_n_out_of_order = self.state._n_out_of_order
         old_n_late_packets = self.state._n_late_packets
         logging.disable(logging.ERROR)
-        self.assertFalse(self.state.received(1, do_nothing()))
+        self.assertFalse(self.state.received(0, do_nothing()))
         self.assertEquals(self.state._max_packet_id, old_max_id)
         self.assertEquals(self.state._n_in_order_packets, old_n_in_order)
         self.assertEquals(self.state._n_out_of_order, old_n_out_of_order + 1)

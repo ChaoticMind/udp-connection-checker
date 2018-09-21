@@ -207,7 +207,7 @@ class TestReceivedPacket(unittest.TestCase):
         logging.disable(logging.ERROR)
         self.assertIsNone(self.receiver._lock(self.info))
         self.assertFalse(self.receiver._process_next_packet.called)
-        self.receive_packet({"type": "next_packet", 'packet_id': 1})
+        self.receive_packet({"type": "next_packet", 'packet_id': 0})
         self.assertTrue(self.receiver._process_next_packet.called)
 
     def test_packet_id_no_handshake_reset(self):
