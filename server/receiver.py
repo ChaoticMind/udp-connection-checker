@@ -23,21 +23,18 @@ class Receiver(DatagramProtocol):
         self._pending_reset_request = None
 
     def _verify(self, info):
+        """Returns:
+            - 0 (success)
+            - 1 (failed, first packet)
+            - 2 (failed, packet from unknown source)
+        """
         host, port = info
         if not self.source_ip or not self.__source_port:
-            log.error(
-                "Received non-handshake packet as a first packet. Ignoring..."
-            )
-            return False
+            return 1
         elif host != self.source_ip or port != self.__source_port:
-            log.error(
-                "Received non-handshake packet from unknown ip/port " +
-                "({}:{}, expected {}:{}), ignoring".format(
-                    host, port, self.source_ip, self.__source_port)
-            )
-            return False
+            return 2
         else:
-            return True
+            return 0
 
     def _lock(self, info):
         host, port = info
@@ -96,8 +93,8 @@ class Receiver(DatagramProtocol):
         return {"type": "ack"}
 
     def _process_next_packet(self, packet_id, info):
-        abort_connection = functools.partial(self.abort_connection, info)
-        self.__state.received(packet_id, abort_connection)
+        abort_request = functools.partial(self._send_abort_request, info)
+        self.__state.received(packet_id, abort_request)
 
     def cleanup(self):
         if self.__expect_task.running:
@@ -148,12 +145,22 @@ class Receiver(DatagramProtocol):
 
         # Other packets (not handshake) need to have their source verified
         else:
-            if not self._verify(info):
-                self._send_json(
-                    {'type': 'info', 'content': "unknown ip/port, ignoring"},
-                    info,
-                )
-                # Might want to abort or reset here
+            verify_fail_ret = self._verify(info)
+            if verify_fail_ret:
+                if verify_fail_ret == 1:
+                    content = (
+                        "Received non-handshake packet as a first packet. "
+                        "Ignoring...")
+                    self._send_reset_request(info)
+                else:
+                    content = (
+                        "Received non-handshake packet from unknown ip/port "
+                        "({}:{}, expected {}:{}), ignoring".format(
+                            *info, self.source_ip, self.__source_port)
+                    )
+                    self._send_abort_request(info)
+                log.error(content)
+                self._send_json({'type': 'info', 'content': content}, info)
                 return
 
         if packet_type == "next_packet":
@@ -184,17 +191,22 @@ class Receiver(DatagramProtocol):
             log.error("Could not send data to peer: {}".format(info))
 
     def reset_connection(self, request):
-        if self._pending_reset_request:  # API waiting
+        if self._pending_reset_request:  # expire old reset request
             self._pending_reset_request.complete_reset_request()
-        self._pending_reset_request = ResetRequest(request, self._send_json)
+        self._pending_reset_request = ResetRequest(
+            request, self._send_reset_request)
 
     @staticmethod
     def __expect_task_errback(reason):
         log.error("expect_packet() failed with:")
         print(reason.getTraceback())
 
-    def abort_connection(self, info):
+    def _send_abort_request(self, info):
         msg = {'type': "abort"}
+        self._send_json(msg, info)
+
+    def _send_reset_request(self, info=None):
+        msg = {'type': "reset"}
         self._send_json(msg, info)
 
 
@@ -203,8 +215,7 @@ class ResetRequest:
 
     def __init__(self, request, task_callback):
         self._request = request
-        msg = {'type': "reset"}
-        self._reset_task = task.LoopingCall(task_callback, msg)
+        self._reset_task = task.LoopingCall(task_callback)
         d = self._reset_task.start(self.reset_retry_period_s, now=True)
         d.addErrback(self.__reset_task_errback)
 

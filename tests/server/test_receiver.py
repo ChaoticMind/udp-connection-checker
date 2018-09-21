@@ -48,17 +48,20 @@ class TestVerifyOrLock(unittest.TestCase):
         self.assertIsNone(self.receiver._lock(self.info))
         self.assertIsNone(self.receiver._lock(self.info))
 
+    def test_verify_unknown(self):
+        self.assertEquals(self.receiver._verify(self.info), 1)
+
     def test_host_changed(self):
         logging.disable(logging.ERROR)
         self.assertIsNone(self.receiver._lock(self.info))
-        self.assertTrue(self.receiver._verify(self.info))
-        self.assertFalse(self.receiver._verify(("other_host", 4242)))
+        self.assertEquals(self.receiver._verify(self.info), 0)
+        self.assertEquals(self.receiver._verify(("other_host", 4242)), 2)
 
     def test_port_changed(self):
         logging.disable(logging.ERROR)
         self.assertIsNone(self.receiver._lock(self.info))
-        self.assertTrue(self.receiver._verify(self.info))
-        self.assertFalse(self.receiver._verify(("localhost", 4444)))
+        self.assertEquals(self.receiver._verify(self.info), 0)
+        self.assertEquals(self.receiver._verify(("localhost", 4444)), 2)
         self.receiver._process_handshake = FunctionCalled(
             self.receiver._process_handshake)
 
@@ -132,6 +135,10 @@ class TestReceivedPacket(unittest.TestCase):
             self.receiver._process_handshake)
         self.receiver._process_next_packet = FunctionCalled(
             self.receiver._process_next_packet)
+        self.receiver._send_abort_request = FunctionCalled(
+            self.receiver._send_abort_request)
+        self.receiver._send_reset_request = FunctionCalled(
+            self.receiver._send_reset_request)
         self.info = "127.0.0.1", 4242
 
     def tearDown(self):
@@ -182,6 +189,7 @@ class TestReceivedPacket(unittest.TestCase):
         self.assertIsNone(self.receiver._pending_reset_request)
 
     def test_double_reset(self):
+        logging.disable(logging.CRITICAL)
         self.assertIsNone(self.receiver._pending_reset_request)
         self.receiver.reset_connection(MockRequest())
         self.receiver.reset_connection(MockRequest())
@@ -202,8 +210,20 @@ class TestReceivedPacket(unittest.TestCase):
         self.receive_packet({"type": "next_packet", 'packet_id': 1})
         self.assertTrue(self.receiver._process_next_packet.called)
 
-    def test_packet_id_no_handshake(self):
+    def test_packet_id_no_handshake_reset(self):
         logging.disable(logging.ERROR)
         self.assertFalse(self.receiver._process_next_packet.called)
+        self.assertFalse(self.receiver._send_reset_request.called)
         self.receive_packet({"type": "next_packet", 'packet_id': 1})
         self.assertFalse(self.receiver._process_next_packet.called)
+        self.assertTrue(self.receiver._send_reset_request.called)
+
+    def test_packet_id_no_handshake_abort(self):
+        logging.disable(logging.ERROR)
+        self.assertFalse(self.receiver._process_next_packet.called)
+        self.assertFalse(self.receiver._send_abort_request.called)
+        # lock to a different client (different ip/port)
+        self.assertIsNone(self.receiver._lock(("localhost", 4444)))
+        self.receive_packet({"type": "next_packet", 'packet_id': 1})
+        self.assertFalse(self.receiver._process_next_packet.called)
+        self.assertTrue(self.receiver._send_abort_request.called)

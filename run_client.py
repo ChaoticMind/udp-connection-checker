@@ -97,8 +97,8 @@ def main():
         reactor.listenUDP(port, s)
     except CannotListenError:
         print(
-            "Couldn't listen to UDP port {}, aborting...".format(port),
-            file=sys.stderr)
+            "Couldn't listen to UDP port {}, aborting..."
+            "(-s to change)".format(port), file=sys.stderr)
         sys.exit(1)
     else:
         log.info("Starting main loop...")

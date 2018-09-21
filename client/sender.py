@@ -70,10 +70,10 @@ class Sender(DatagramProtocol):
             self.process_abort()
 
         elif data['type'] == "info":
-            log.warning("received message: {}".format(data['content']))
+            log.warning("Received message: {}".format(data['content']))
 
         else:
-            log.error("received unknown data: {}".format(data))
+            log.error("Received unknown data: {}".format(data))
 
     def process_handshake_ack(self):
         log.info("Handshake confirmed.. starting to send data...")
