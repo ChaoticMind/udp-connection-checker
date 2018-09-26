@@ -118,6 +118,5 @@ via the [prometheus client](https://github.com/prometheus/client_python)
 
 ### Features
 
-- Use prometheus counters
 - Move all control packets (handshake/reset/...) to TCP
 - Make 'threshold' take seconds instead of number of packets

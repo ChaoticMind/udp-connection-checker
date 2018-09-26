@@ -1,7 +1,8 @@
 import logging
 import json
-
 from collections import OrderedDict
+
+from prometheus_client import Gauge
 
 log = logging.getLogger(__name__)
 
@@ -20,6 +21,25 @@ class State:
         self.__packet_losses = 0
         self._n_late_packets = 0
 
+        self._prom_in_order = Gauge(
+            'packets_in_order',
+            'Packets that have arrived in order')
+        self._prom_out_of_order = Gauge(
+            'packets_out_of_order',
+            'Packets that have arrived out-of order')
+        self._prom_losses = Gauge(
+            'packets_losses',
+            'Packets that have not arrived in time')
+        self._prom_late = Gauge(
+            'packets_late',
+            'Packets that have not arrived in time, but eventually arrived')
+
+    def _reset_prom_counters(self):
+        self._prom_in_order.set(0)
+        self._prom_out_of_order.set(0)
+        self._prom_losses.set(0)
+        self._prom_late.set(0)
+
     def reset_state(self):
         self.__expected_packet_id = 0
         self._n_in_order_packets = 0
@@ -28,6 +48,7 @@ class State:
         self._n_out_of_order = 0
         self.__packet_losses = 0
         self._n_late_packets = 0
+        self._reset_prom_counters()
 
     def received(self, packet_id, abort_callback):
         if packet_id > self.__expected_packet_id:
@@ -42,6 +63,7 @@ class State:
         if packet_id > self._max_packet_id:
             log.info("Received in-order packet {}".format(packet_id))
             self._n_in_order_packets += 1
+            self._prom_in_order.inc()
             self._max_packet_id = packet_id
             return True
 
@@ -49,6 +71,7 @@ class State:
 
         if packet_id >= min_packet_id:
             self._n_out_of_order += 1
+            self._prom_out_of_order.inc()
             log.warning("Received out of order packet {}".format(packet_id))
 
         else:
@@ -56,6 +79,7 @@ class State:
                 "Received a very old packet. " +
                 "It is considered lost by now...")
             self._n_late_packets += 1
+            self._prom_late.inc()
         return False
 
     def expect_packet(self):
@@ -78,6 +102,7 @@ class State:
             log.error(
                 "Most likely lost a packet for a total of: {}".format(
                     new_losses))
+            self._prom_losses.inc(new_losses - old_losses)
             self.__packet_losses = new_losses
             return False
 
