@@ -45,8 +45,8 @@ The possible packets types are:
 The client sends a handshake message consisting of:
 ```json
 {
-    'type': "handshake",
-    'pps': <packets_per_second>,
+    "type": "handshake",
+    "pps": "<packets_per_second>",
 }
 ```
 The server replies with `{"type": "ack"}`
@@ -65,9 +65,9 @@ Every period (inverse of `packets_per_second`), the client sends a new
 packet:
 ```json
 {
-    'type': "next_packet",
-    'timestamp': `now()`,
-    'packet_id': <next_packet_id>,
+    "type": "next_packet",
+    "timestamp": "`now()`",
+    "packet_id": "<next_packet_id>",
 }
 ```
 The server compares the `packet_id` to its `expected_packet_id` and
